@@ -229,7 +229,7 @@ looker.plugins.visualizations.add({
     const centerX = width / 2;
 
     // Define the Y position for the title
-    const titleYPosition = 30; // Set a fixed Y position for the title
+    const titleYPosition = 10; // Set a fixed Y position for the title
 
     // Calculate centerY to place the gauge below the title with sufficient space
     // The top of the gauge arc is at centerY - gaugeRadius.
