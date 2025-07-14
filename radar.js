@@ -1,7 +1,6 @@
+// my_single_value_gauge_no_deps.js
 
-// my_heatmap_no_deps.js
-
-// This JavaScript file defines a custom Heatmap visualization for Looker.
+// This JavaScript file defines a custom Single-Value Gauge visualization for Looker.
 // It is designed to have NO EXTERNAL JAVASCRIPT DEPENDENCIES,
 // relying solely on native browser APIs (pure JavaScript and SVG manipulation).
 
@@ -10,114 +9,137 @@ looker.plugins.visualizations.add({
   // Define the configurable options for the visualization. These options will appear
   // in the Looker visualization panel, allowing users to customize the chart.
   options: {
-    // Color Scale Settings
-    min_color: {
+    // Gauge Range
+    gauge_min: {
+      type: "number",
+      label: "Gauge Minimum Value",
+      default: 0,
+      min: -1000000000, // Allow large negative numbers
+      max: 1000000000,
+      step: 1,
+      section: "Gauge Settings",
+      order: 1
+    },
+    gauge_max: {
+      type: "number",
+      label: "Gauge Maximum Value",
+      default: 100,
+      min: -1000000000,
+      max: 1000000000,
+      step: 1,
+      section: "Gauge Settings",
+      order: 2
+    },
+    gauge_thickness: {
+      type: "number",
+      label: "Gauge Arc Thickness",
+      default: 20,
+      min: 5,
+      max: 50,
+      step: 1,
+      section: "Gauge Settings",
+      order: 3
+    },
+
+    // Colors
+    gauge_color_background: {
       type: "array",
-      label: "Min Value Color",
-      default: ["#FFFFFF"], // White
+      label: "Background Arc Color",
+      default: ["#E0E0E0"], // Light gray
       display: "color",
       section: "Colors",
       order: 1
     },
-    mid_color: {
+    gauge_color_fill: {
       type: "array",
-      label: "Mid Value Color (Optional)",
-      default: ["#FFFF00"], // Yellow
+      label: "Fill Arc Color",
+      default: ["#4285F4"], // Google Blue
       display: "color",
       section: "Colors",
       order: 2
     },
-    max_color: {
+    pointer_color: {
       type: "array",
-      label: "Max Value Color",
-      default: ["#FF0000"], // Red
+      label: "Pointer Color",
+      default: ["#EA4335"], // Google Red
       display: "color",
       section: "Colors",
       order: 3
     },
-    use_mid_color: {
-      type: "boolean",
-      label: "Use Mid Color in Scale",
-      default: false,
-      display: "radio",
+    value_label_color: {
+      type: "array",
+      label: "Value Label Color",
+      default: ["#333333"],
+      display: "color",
       section: "Colors",
       order: 4
     },
-    // Axis Labels
-    show_x_axis_labels: {
-      type: "boolean",
-      label: "Show X-Axis Labels",
-      default: true,
-      display: "radio",
+    min_max_label_color: {
+      type: "array",
+      label: "Min/Max Label Color",
+      default: ["#666666"],
+      display: "color",
+      section: "Colors",
+      order: 5
+    },
+
+    // Labels & Text
+    title_text: {
+      type: "string",
+      label: "Chart Title",
+      default: "KPI Progress",
+      display: "text",
       section: "Labels",
       order: 1
     },
-    show_y_axis_labels: {
+    title_display: {
       type: "boolean",
-      label: "Show Y-Axis Labels",
+      label: "Display Title",
       default: true,
       display: "radio",
       section: "Labels",
       order: 2
     },
-    x_axis_label_size: {
+    value_label_size: {
       type: "number",
-      label: "X-Axis Label Size",
-      default: 12,
-      min: 8,
-      max: 24,
+      label: "Value Label Font Size",
+      default: 36,
+      min: 10,
+      max: 72,
       step: 1,
       section: "Labels",
       order: 3
     },
-    y_axis_label_size: {
+    value_format_string: {
       type: "number",
-      label: "Y-Axis Label Size",
-      default: 12,
-      min: 8,
-      max: 24,
-      step: 1,
-      section: "Labels",
-      order: 4
-    },
-    // Cell Value Labels
-    show_cell_values: {
-      type: "boolean",
-      label: "Show Cell Values",
-      default: true,
-      display: "radio",
-      section: "Labels",
-      order: 5
-    },
-    cell_value_size: {
-      type: "number",
-      label: "Cell Value Font Size",
-      default: 10,
-      min: 8,
-      max: 20,
-      step: 1,
-      section: "Labels",
-      order: 6
-    },
-    cell_value_color: {
-      type: "array",
-      label: "Cell Value Color",
-      default: ["#000000"], // Black
-      display: "color",
-      section: "Colors",
-      order: 5
-    },
-    value_decimal_places: {
-      type: "number",
-      label: "Value Decimal Places",
+      label: "Decimal Places",
       default: 1,
       min: 0,
       max: 10,
       step: 1,
       display: "number",
       section: "Labels",
-      order: 7
-    }
+      order: 4,
+      description: "Number of decimal places for value labels."
+    },
+    show_min_max_labels: {
+      type: "boolean",
+      label: "Show Min/Max Labels",
+      default: true,
+      display: "radio",
+      section: "Labels",
+      order: 5
+    },
+    min_max_label_size: {
+      type: "number",
+      label: "Min/Max Label Font Size",
+      default: 14,
+      min: 8,
+      max: 30,
+      step: 1,
+      section: "Labels",
+      order: 6
+    },
   },
 
   // The 'create' function is called once when the visualization is first mounted.
@@ -132,20 +154,17 @@ looker.plugins.visualizations.add({
     svg.style.fontFamily = "Inter, sans-serif";
     element.appendChild(svg);
 
-    // Create group element for the heatmap cells
-    const heatmapGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
-    heatmapGroup.setAttribute("class", "heatmap-group");
-    svg.appendChild(heatmapGroup);
+    // Create group element for the gauge
+    const gaugeGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    gaugeGroup.setAttribute("class", "gauge-group");
+    svg.appendChild(gaugeGroup);
 
-    // Create group for Y-axis labels
-    const yAxisGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
-    yAxisGroup.setAttribute("class", "y-axis-labels");
-    svg.appendChild(yAxisGroup);
-
-    // Create group for X-axis labels
-    const xAxisGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
-    xAxisGroup.setAttribute("class", "x-axis-labels");
-    svg.appendChild(xAxisGroup);
+    // Create title element
+    const titleText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    titleText.setAttribute("class", "chart-title");
+    titleText.setAttribute("text-anchor", "middle");
+    titleText.style.fontWeight = "bold";
+    svg.appendChild(titleText);
 
     // Create error message container
     const errorContainer = document.createElement("div");
@@ -160,15 +179,14 @@ looker.plugins.visualizations.add({
   // The 'updateAsync' function is called whenever the data, configuration, or size changes.
   updateAsync: function(data, element, config, queryResponse, details) {
     const svg = element.querySelector("svg");
-    const heatmapGroup = svg.querySelector(".heatmap-group");
-    const yAxisGroup = svg.querySelector(".y-axis-labels");
-    const xAxisGroup = svg.querySelector(".x-axis-labels");
+    const gaugeGroup = svg.querySelector(".gauge-group");
+    const titleText = svg.querySelector(".chart-title");
     const errorContainer = element.querySelector(".error-message");
 
     // Clear previous renderings
-    while (heatmapGroup.firstChild) heatmapGroup.removeChild(heatmapGroup.firstChild);
-    while (yAxisGroup.firstChild) yAxisGroup.removeChild(yAxisGroup.firstChild);
-    while (xAxisGroup.firstChild) xAxisGroup.removeChild(xAxisGroup.firstChild);
+    while (gaugeGroup.firstChild) {
+      gaugeGroup.removeChild(gaugeGroup.firstChild);
+    }
     errorContainer.style.display = "none";
     errorContainer.textContent = "";
 
@@ -176,14 +194,9 @@ looker.plugins.visualizations.add({
     const dimensions = queryResponse.fields.dimension_like;
     const measures = queryResponse.fields.measure_like;
 
-    if (dimensions.length < 2) {
+    if (dimensions.length === 0 && measures.length === 0) {
       errorContainer.style.display = "block";
-      errorContainer.textContent = "This visualization requires at least two dimensions (one for X-axis, one for Y-axis).";
-      return;
-    }
-    if (measures.length !== 1) {
-      errorContainer.style.display = "block";
-      errorContainer.textContent = "This visualization requires exactly one measure (for cell values).";
+      errorContainer.textContent = "This visualization requires at least one measure or one dimension.";
       return;
     }
     if (data.length === 0) {
@@ -191,162 +204,201 @@ looker.plugins.visualizations.add({
       errorContainer.textContent = "No data returned for this query.";
       return;
     }
-
-    // Extract axis dimensions and measure
-    const xAxisDimension = dimensions[0].name;
-    const yAxisDimension = dimensions[1].name;
-    const cellMeasure = measures[0].name;
-
-    // Get unique X and Y axis values
-    const xValues = Array.from(new Set(data.map(d => d[xAxisDimension].value)));
-    const yValues = Array.from(new Set(data.map(d => d[yAxisDimension].value)));
-
-    // Map data for easy lookup: { 'x_value|y_value': measure_value }
-    const cellDataMap = new Map();
-    let minValue = Infinity;
-    let maxValue = -Infinity;
-
-    data.forEach(d => {
-      const x = d[xAxisDimension].value;
-      const y = d[yAxisDimension].value;
-      const val = parseFloat(d[cellMeasure].value);
-      if (!isNaN(val)) {
-        cellDataMap.set(`${x}|${y}`, val);
-        if (val < minValue) minValue = val;
-        if (val > maxValue) maxValue = val;
-      }
-    });
-
-    // Handle case where all measure values might be the same or no valid numbers
-    if (minValue === Infinity || maxValue === -Infinity || minValue === maxValue) {
-        minValue = 0;
-        maxValue = 1; // Default to a small range if data is uniform or invalid
+    if (data.length > 1) {
+      errorContainer.style.display = "block";
+      errorContainer.textContent = "This Single-Value Gauge visualization is designed for a single value. Please ensure your query returns only one row of data (e.g., by filtering to a single dimension value).";
+      return;
+    }
+    if (measures.length !== 1) {
+      errorContainer.style.display = "block";
+      errorContainer.textContent = "This chart accepts exactly one measure.";
+      return;
     }
 
-    // Chart Dimensions and Margins
-    const svgWidth = element.offsetWidth;
-    const svgHeight = element.offsetHeight;
+    const rowData = data[0];
+    const measureName = measures[0].name;
+    let value = parseFloat(rowData[measureName] ? rowData[measureName].value : 0);
 
-    const margin = { top: 50, right: 20, bottom: 80, left: 100 }; // Increased margins for labels
-    const availableChartWidth = svgWidth - margin.left - margin.right;
-    const availableChartHeight = svgHeight - margin.top - margin.bottom;
+    // Chart Dimensions
+    const width = element.offsetWidth;
+    const height = element.offsetHeight;
+    const gaugeRadius = Math.min(width, height) / 2 * 0.8;
+    const gaugeThickness = config.gauge_thickness;
+    const centerX = width / 2;
 
-    // Calculate cell dimensions to make them square or long rectangles
-    // Prioritize making cells square based on the number of X-axis items
-    const cellWidth = availableChartWidth / xValues.length;
-    const cellHeight = cellWidth; // Force square cells
+    // Define the Y position for the title
+    const titleYPosition = 30; // Y position for the title's baseline
 
-    // Adjust chart dimensions based on the forced square cell size
-    const chartWidth = cellWidth * xValues.length;
-    const chartHeight = cellHeight * yValues.length;
+    // Calculate centerY to place the gauge below the title with 25px space
+    // The top of the gauge arc is at centerY - gaugeRadius.
+    // So, (centerY - gaugeRadius) - titleYPosition = 25
+    // centerY = titleYPosition + 25 + gaugeRadius
+    const centerY = titleYPosition + 25 + gaugeRadius;
 
-    // Adjust heatmap group transform to center the heatmap within the available space
-    const translateX = margin.left + (availableChartWidth - chartWidth) / 2;
-    const translateY = margin.top + (availableChartHeight - chartHeight) / 2;
-
-
-    // --- Color Scale Function (RGB interpolation) ---
-    // Converts hex color to RGB array [r, g, b]
-    const hexToRgb = (hex) => {
-      const bigint = parseInt(hex.slice(1), 16);
-      return [(bigint >> 16) & 255, (bigint >> 8) & 255, bigint & 255];
-    };
-
-    // Interpolates between two RGB colors
-    const interpolateRgb = (rgb1, rgb2, t) => {
-      return `rgb(${Math.round(rgb1[0] + (rgb2[0] - rgb1[0]) * t)},
-                    ${Math.round(rgb1[1] + (rgb2[1] - rgb1[1]) * t)},
-                    ${Math.round(rgb1[2] + (rgb2[2] - rgb1[2]) * t)})`;
-    };
-
-    const getColorForValue = (val) => {
-      if (isNaN(val)) return "#CCCCCC"; // Gray for null/invalid values
-
-      const minRgb = hexToRgb(config.min_color[0]);
-      const maxRgb = hexToRgb(config.max_color[0]);
-
-      if (config.use_mid_color) {
-        const midRgb = hexToRgb(config.mid_color[0]);
-        const midPoint = (minValue + maxValue) / 2;
-
-        if (val <= midPoint) {
-          const t = (val - minValue) / (midPoint - minValue);
-          return interpolateRgb(minRgb, midRgb, t);
-        } else {
-          const t = (val - midPoint) / (maxValue - midPoint);
-          return interpolateRgb(midRgb, maxRgb, t);
-        }
-      } else {
-        const t = (val - minValue) / (maxValue - minValue);
-        return interpolateRgb(minRgb, maxRgb, t);
-      }
-    };
-
-    // --- Render Heatmap Cells ---
-    heatmapGroup.setAttribute("transform", `translate(${translateX},${translateY})`);
-
-    yValues.forEach((yVal, yIndex) => {
-      xValues.forEach((xVal, xIndex) => {
-        const cellValue = cellDataMap.get(`${xVal}|${yVal}`);
-        const cellColor = getColorForValue(cellValue);
-
-        const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-        rect.setAttribute("x", xIndex * cellWidth);
-        rect.setAttribute("y", yIndex * cellHeight);
-        rect.setAttribute("width", cellWidth);
-        rect.setAttribute("height", cellHeight);
-        rect.setAttribute("fill", cellColor);
-        rect.setAttribute("stroke", "#FFFFFF"); // White border for cells
-        rect.setAttribute("stroke-width", 1);
-        heatmapGroup.appendChild(rect);
-
-        // Cell Value Label
-        if (config.show_cell_values && cellValue !== undefined) {
-          const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-          text.setAttribute("x", xIndex * cellWidth + cellWidth / 2);
-          text.setAttribute("y", yIndex * cellHeight + cellHeight / 2 + config.cell_value_size / 3); // Adjust y for vertical centering
-          text.setAttribute("text-anchor", "middle");
-          text.style.fontSize = `${config.cell_value_size}px`;
-          text.setAttribute("fill", config.cell_value_color[0]);
-          text.textContent = isNaN(cellValue) ? "" : cellValue.toFixed(config.value_decimal_places);
-          heatmapGroup.appendChild(text);
-        }
-      });
-    });
-
-    // --- Render Y-Axis Labels ---
-    if (config.show_y_axis_labels) {
-      yAxisGroup.setAttribute("transform", `translate(${margin.left - 10},${translateY})`); // Shift left, align with heatmapGroup's Y
-      yValues.forEach((yVal, yIndex) => {
-        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-        text.setAttribute("x", 0);
-        text.setAttribute("y", yIndex * cellHeight + cellHeight / 2 + config.y_axis_label_size / 3);
-        text.setAttribute("text-anchor", "end");
-        text.style.fontSize = `${config.y_axis_label_size}px`;
-        text.setAttribute("fill", "#333333");
-        text.textContent = yVal;
-        yAxisGroup.appendChild(text);
-      });
+    // Update title
+    if (config.title_display) {
+      titleText.setAttribute("x", centerX);
+      titleText.setAttribute("y", titleYPosition);
+      titleText.textContent = config.title_text;
+    } else {
+      titleText.textContent = "";
     }
 
-    // --- Render X-Axis Labels ---
-    if (config.show_x_axis_labels) {
-      xAxisGroup.setAttribute("transform", `translate(${translateX},${translateY + chartHeight + 10})`); // Shift down, align with heatmapGroup's X
-      xValues.forEach((xVal, xIndex) => {
-        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-        text.setAttribute("x", xIndex * cellWidth + cellWidth / 2);
-        text.setAttribute("y", 0);
-        text.setAttribute("text-anchor", "middle");
-        text.style.fontSize = `${config.x_axis_label_size}px`;
-        text.setAttribute("fill", "#333333");
-        // Rotate labels if they might overlap
-        if (xValues.length > 5 && cellWidth < 80) { // Heuristic for when to rotate
-          text.setAttribute("transform", `rotate(45, ${xIndex * cellWidth + cellWidth / 2}, 0)`);
-          text.setAttribute("text-anchor", "start");
-        }
-        text.textContent = xVal;
-        xAxisGroup.appendChild(text);
-      });
+    // Ensure value is within min/max range
+    value = Math.max(config.gauge_min, Math.min(config.gauge_max, value));
+
+    // Function to convert value to angle (radians) for a half-circle from -PI to 0
+    const valueToAngle = (val) => {
+      const normalized = (val - config.gauge_min) / (config.gauge_max - config.gauge_min);
+      // Map to -PI to 0 (half circle, from -180 degrees (left) to 0 degrees (right))
+      return normalized * Math.PI - Math.PI;
+    };
+
+    // Function to generate SVG arc path for a semi-circle
+    const getArcPath = (startAngle, endAngle, innerR, outerR) => {
+      // Normalize angles to 0 to 2*PI for consistent SVG path drawing
+      const normalizeAngle = (angle) => {
+        angle = angle % (2 * Math.PI);
+        return angle < 0 ? angle + 2 * Math.PI : angle;
+      };
+
+      const normalizedStart = normalizeAngle(startAngle);
+      let normalizedEnd = normalizeAngle(endAngle);
+
+      // For a single 180-degree arc, largeArcFlag is always 0.
+      // If the difference is exactly PI (180 deg), SVG treats largeArcFlag as 0 or 1 based on sweep direction.
+      // To ensure it draws as intended, if angleDiff is exactly PI, slightly adjust endAngle if sweepFlag is 1
+      let angleDiff = normalizedEnd - normalizedStart;
+      if (angleDiff < 0) angleDiff += 2 * Math.PI; // Ensure positive sweep
+
+      const largeArcFlag = angleDiff > Math.PI ? 1 : 0; // Should be 0 for a 180-deg arc
+      const sweepFlag = 1; // Always clockwise for outer arc
+
+      // Outer arc points
+      const startXOuter = centerX + outerR * Math.cos(normalizedStart);
+      const startYOuter = centerY + outerR * Math.sin(normalizedStart);
+      const endXOuter = centerX + outerR * Math.cos(normalizedEnd);
+      const endYOuter = centerY + outerR * Math.sin(normalizedEnd);
+
+      // Inner arc points (drawn in reverse direction for the fill)
+      const startXInner = centerX + innerR * Math.cos(normalizedEnd); // Inner arc starts at the end of the outer arc
+      const startYInner = centerY + innerR * Math.sin(normalizedEnd);
+      const endXInner = centerX + innerR * Math.cos(normalizedStart); // Inner arc ends at the start of the outer arc
+      const endYInner = centerY + innerR * Math.sin(normalizedStart);
+
+      // SVG Path:
+      // M: Move to start of outer arc
+      // A: Arc from start of outer to end of outer (outerR, outerR, x-axis-rotation, large-arc-flag, sweep-flag, endX, endY)
+      // L: Line to start of inner arc (connects outer end to inner end)
+      // A: Arc from start of inner to end of inner (innerR, innerR, x-axis-rotation, large-arc-flag, reverse-sweep-flag, endX, endY)
+      // Z: Close path
+      let path = `M ${startXOuter} ${startYOuter}
+                  A ${outerR} ${outerR} 0 ${largeArcFlag} ${sweepFlag} ${endXOuter} ${endYOuter}
+                  L ${startXInner} ${startYInner}
+                  A ${innerR} ${innerR} 0 ${largeArcFlag} ${1 - sweepFlag} ${endXInner} ${endYInner}
+                  Z`;
+      return path;
+    };
+
+    // Background arc (half circle from -PI to 0 radians)
+    const backgroundArcPath = getArcPath(
+      -Math.PI, 0, // Arc from -180 degrees (left) to 0 degrees (right)
+      gaugeRadius - gaugeThickness, gaugeRadius
+    );
+    const backgroundArc = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    backgroundArc.setAttribute("d", backgroundArcPath);
+    backgroundArc.setAttribute("fill", config.gauge_color_background[0]);
+    gaugeGroup.appendChild(backgroundArc);
+
+    // Fill arc (representing the current value, from -PI to value's angle)
+    const fillAngle = valueToAngle(value);
+    const fillArcPath = getArcPath(
+      -Math.PI, fillAngle, // Fill from -PI to current value's angle
+      gaugeRadius - gaugeThickness, gaugeRadius
+    );
+    const fillArc = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    fillArc.setAttribute("d", fillArcPath);
+    fillArc.setAttribute("fill", config.gauge_color_fill[0]);
+    gaugeGroup.appendChild(fillArc);
+
+    // --- Pointer (Needle) ---
+    const pointerLength = gaugeRadius - gaugeThickness - 5;
+    const pointerWidth = 8;
+    const pointerAngleRad = valueToAngle(value);
+
+    // Calculate pointer endpoints
+    const pointerTipX = centerX + pointerLength * Math.cos(pointerAngleRad);
+    const pointerTipY = centerY + pointerLength * Math.sin(pointerAngleRad);
+
+    // Base of the pointer (at the center of the gauge)
+    const pointerDirectionAngle = Math.atan2(pointerTipY - centerY, pointerTipX - centerX);
+    const baseAngle1 = pointerDirectionAngle - Math.PI / 2;
+    const baseAngle2 = pointerDirectionAngle + Math.PI / 2;
+
+    const basePoint1X = centerX + (pointerWidth / 2) * Math.cos(baseAngle1);
+    const basePoint1Y = centerY + (pointerWidth / 2) * Math.sin(baseAngle1);
+    const basePoint2X = centerX + (pointerWidth / 2) * Math.cos(baseAngle2);
+    const basePoint2Y = centerY + (pointerWidth / 2) * Math.sin(baseAngle2);
+
+    const pointerPathString = `M ${basePoint1X} ${basePoint1Y} L ${pointerTipX} ${pointerTipY} L ${basePoint2X} ${basePoint2Y} Z`;
+
+    const pointer = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    pointer.setAttribute("d", pointerPathString);
+    pointer.setAttribute("fill", config.pointer_color[0]);
+    gaugeGroup.appendChild(pointer);
+
+    // --- Value Label (Current Value) ---
+    const formatValue = (val, decimals) => {
+      if (typeof val !== 'number' || isNaN(val)) return '';
+      return val.toFixed(decimals);
+    };
+
+    const valueLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    valueLabel.setAttribute("class", "value-label");
+    valueLabel.setAttribute("x", centerX);
+    valueLabel.setAttribute("y", centerY + gaugeRadius * 0.4); // Position below the gauge
+    valueLabel.setAttribute("text-anchor", "middle");
+    valueLabel.style.fontSize = `${config.value_label_size}px`;
+    valueLabel.style.fontWeight = "bold";
+    valueLabel.setAttribute("fill", config.value_label_color[0]);
+    valueLabel.textContent = formatValue(value, config.value_format_string);
+    gaugeGroup.appendChild(valueLabel);
+
+    // --- Min/Max Labels ---
+    if (config.show_min_max_labels) {
+      const labelOffset = 10; // Space between gauge ends and labels
+
+      // Min label: Horizontally in the middle of the beginning of the gauge (-PI point)
+      // and 10 pixels down vertically from the center of the arc's start point.
+      const minLabelX = centerX - gaugeRadius; // X-coord of the -PI point
+      const minLabelY = centerY + labelOffset; // Y-coord of the -PI point (which is centerY) + offset
+
+      // Max label: Horizontally in the middle of the end of the gauge (0 point)
+      // and 10 pixels down vertically from the center of the arc's end point.
+      const maxLabelX = centerX + gaugeRadius; // X-coord of the 0 point
+      const maxLabelY = centerY + labelOffset; // Y-coord of the 0 point (which is centerY) + offset
+
+      // Min label
+      const minLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      minLabel.setAttribute("class", "min-label");
+      minLabel.setAttribute("x", minLabelX);
+      minLabel.setAttribute("y", minLabelY + (config.min_max_label_size / 2)); // Adjust Y for vertical centering
+      minLabel.setAttribute("text-anchor", "middle"); // Center text horizontally
+      minLabel.style.fontSize = `${config.min_max_label_size}px`;
+      minLabel.setAttribute("fill", config.min_max_label_color[0]);
+      minLabel.textContent = formatValue(config.gauge_min, config.value_format_string);
+      gaugeGroup.appendChild(minLabel);
+
+      // Max label
+      const maxLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      maxLabel.setAttribute("class", "max-label");
+      maxLabel.setAttribute("x", maxLabelX);
+      maxLabel.setAttribute("y", maxLabelY + (config.min_max_label_size / 2)); // Adjust Y for vertical centering
+      maxLabel.setAttribute("text-anchor", "middle"); // Center text horizontally
+      maxLabel.style.fontSize = `${config.min_max_label_size}px`;
+      maxLabel.setAttribute("fill", config.min_max_label_color[0]);
+      maxLabel.textContent = formatValue(config.gauge_max, config.value_format_string);
+      gaugeGroup.appendChild(maxLabel);
     }
   }
 });
