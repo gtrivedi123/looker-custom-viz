@@ -229,7 +229,7 @@ looker.plugins.visualizations.add({
     const centerX = width / 2;
 
     // Define the Y position for the title
-    const titleYPosition = 15; // Set a fixed Y position for the title
+    const titleYPosition = 25; // Set a fixed Y position for the title
 
     // Calculate centerY to place the gauge below the title with sufficient space
     // The top of the gauge arc is at centerY - gaugeRadius.
@@ -251,41 +251,46 @@ looker.plugins.visualizations.add({
     // Function to convert value to angle (radians)
     const valueToAngle = (val) => {
       const normalized = (val - config.gauge_min) / (config.gauge_max - config.gauge_min);
-      // Map to -PI to PI (full circle, from -180 degrees to 180 degrees)
-      return normalized * (2 * Math.PI) - Math.PI;
+      let angle = normalized * (2 * Math.PI) - Math.PI; // Map to -PI to PI (full circle)
+      
+      // Add a tiny epsilon if it's a full circle, to prevent rendering ambiguity
+      // when start and end angles are identical.
+      if (normalized === 1) {
+          angle -= 0.00001; // Slightly less than a full circle to avoid rendering ambiguity
+      }
+      return angle;
     };
 
     // Function to generate SVG arc path
     const getArcPath = (startAngle, endAngle, innerR, outerR) => {
-      // Ensure angles are within a single 2PI range for consistent calculation
-      startAngle = startAngle % (2 * Math.PI);
-      endAngle = endAngle % (2 * Math.PI);
-      // Adjust negative angles to be positive equivalents for calculation consistency
-      if (startAngle < 0) startAngle += 2 * Math.PI;
-      if (endAngle < 0) endAngle += 2 * Math.PI;
+      // Normalize angles to 0 to 2*PI for consistent calculations
+      const normalizeAngle = (angle) => {
+        angle = angle % (2 * Math.PI);
+        return angle < 0 ? angle + 2 * Math.PI : angle;
+      };
 
-      // Calculate sweep difference, ensuring it's positive and within 2PI
-      let angleDiff = endAngle - startAngle;
-      if (angleDiff < 0) angleDiff += 2 * Math.PI; // Correct for cases like start=270, end=90 (diff is -180, should be 180)
+      let normalizedStart = normalizeAngle(startAngle);
+      let normalizedEnd = normalizeAngle(endAngle);
 
-      const largeArcFlag = angleDiff > Math.PI ? 1 : 0; // 1 if sweep > 180 degrees, 0 otherwise
-      const sweepFlag = 1; // Always clockwise for outer arc
+      // For a full circle, if start and end are logically the same, adjust end slightly
+      // to ensure the arc is drawn.
+      if (Math.abs(endAngle - startAngle) >= (2 * Math.PI - 0.001)) { // Check if it's intended to be a full circle
+          normalizedEnd = normalizedStart + (2 * Math.PI - 0.00001); // Draw almost full circle
+      }
+      
+      const largeArcFlag = (normalizedEnd - normalizedStart) > Math.PI ? 1 : 0;
+      const sweepFlag = 1; // Always clockwise for the primary arc segment (outer arc)
 
-      const startXOuter = centerX + outerR * Math.cos(startAngle);
-      const startYOuter = centerY + outerR * Math.sin(startAngle);
-      const endXOuter = centerX + outerR * Math.cos(endAngle);
-      const endYOuter = centerY + outerR * Math.sin(endAngle);
+      const startXOuter = centerX + outerR * Math.cos(normalizedStart);
+      const startYOuter = centerY + outerR * Math.sin(normalizedStart);
+      const endXOuter = centerX + outerR * Math.cos(normalizedEnd);
+      const endYOuter = centerY + outerR * Math.sin(normalizedEnd);
 
-      const startXInner = centerX + innerR * Math.cos(startAngle); // Inner arc starts at the same angle as outer
-      const startYInner = centerY + innerR * Math.sin(startAngle);
-      const endXInner = centerX + innerR * Math.cos(endAngle);
-      const endYInner = centerY + innerR * Math.sin(endAngle);
+      const startXInner = centerX + innerR * Math.cos(normalizedStart);
+      const startYInner = centerY + innerR * Math.sin(normalizedStart);
+      const endXInner = centerX + innerR * Math.cos(normalizedEnd);
+      const endYInner = centerY + innerR * Math.sin(normalizedEnd);
 
-      // M start of outer arc
-      // A outer arc to end of outer arc
-      // L end of inner arc (connecting outer arc end to inner arc end)
-      // A inner arc backwards to start of inner arc (sweepFlag 0 means counter-clockwise)
-      // Z close path
       let path = `M ${startXOuter} ${startYOuter}
                   A ${outerR} ${outerR} 0 ${largeArcFlag} ${sweepFlag} ${endXOuter} ${endYOuter}
                   L ${endXInner} ${endYInner}
