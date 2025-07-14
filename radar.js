@@ -234,7 +234,7 @@ looker.plugins.visualizations.add({
     // Calculate centerY to place the gauge below the title with sufficient space
     // The top of the gauge arc is at centerY - gaugeRadius.
     // We want this to be below titleYPosition + some padding (e.g., 30px).
-    const centerY = titleYPosition + 50 + gaugeRadius;
+    const centerY = titleYPosition + 30 + gaugeRadius;
 
     // Update title
     if (config.title_display) {
