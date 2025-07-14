@@ -227,14 +227,14 @@ looker.plugins.visualizations.add({
     const gaugeRadius = Math.min(width, height) / 2 * 0.8;
     const gaugeThickness = config.gauge_thickness;
     const centerX = width / 2;
-    // Adjusted centerY to move the gauge down, creating space for the title
-    const centerY = height / 2 + gaugeRadius * 0.2;
+    // Adjusted centerY to move the gauge down, creating more space for the title
+    const centerY = height / 2 + gaugeRadius * 0.4; // Increased offset from 0.2 to 0.4
 
     // Update title
     if (config.title_display) {
       titleText.setAttribute("x", centerX);
-      // Adjusted title Y position for more space
-      titleText.setAttribute("y", 40);
+      // Adjusted title Y position for more space (moved further down)
+      titleText.setAttribute("y", 60); // Increased from 40 to 60
       titleText.textContent = config.title_text;
     } else {
       titleText.textContent = "";
