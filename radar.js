@@ -229,7 +229,7 @@ looker.plugins.visualizations.add({
     const centerX = width / 2;
 
     // Define the Y position for the title
-    const titleYPosition = 5; // Set a fixed Y position for the title
+    const titleYPosition = 10; // Set a fixed Y position for the title
 
     // Calculate centerY to place the gauge below the title with sufficient space
     // The top of the gauge arc is at centerY - gaugeRadius.
@@ -334,7 +334,7 @@ looker.plugins.visualizations.add({
     const valueLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
     valueLabel.setAttribute("class", "value-label");
     valueLabel.setAttribute("x", centerX);
-    valueLabel.setAttribute("y", centerY + gaugeRadius * 0.4);
+    valueLabel.setAttribute("y", centerY + gaugeRadius * 0.5);
     valueLabel.setAttribute("text-anchor", "middle");
     valueLabel.style.fontSize = `${config.value_label_size}px`;
     valueLabel.style.fontWeight = "bold";
