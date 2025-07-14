@@ -227,11 +227,22 @@ looker.plugins.visualizations.add({
     const svgHeight = element.offsetHeight;
 
     const margin = { top: 50, right: 20, bottom: 80, left: 100 }; // Increased margins for labels
-    const chartWidth = svgWidth - margin.left - margin.right;
-    const chartHeight = svgHeight - margin.top - margin.bottom;
+    const availableChartWidth = svgWidth - margin.left - margin.right;
+    const availableChartHeight = svgHeight - margin.top - margin.bottom;
 
-    const cellWidth = chartWidth / xValues.length;
-    const cellHeight = chartHeight / yValues.length;
+    // Calculate cell size to make them square and fit within the available space
+    const cellSize = Math.min(
+      availableChartWidth / xValues.length,
+      availableChartHeight / yValues.length
+    );
+
+    const chartWidth = cellSize * xValues.length;
+    const chartHeight = cellSize * yValues.length;
+
+    // Adjust heatmap group transform to center the heatmap if it doesn't fill the whole area
+    const translateX = margin.left + (availableChartWidth - chartWidth) / 2;
+    const translateY = margin.top + (availableChartHeight - chartHeight) / 2;
+
 
     // --- Color Scale Function (RGB interpolation) ---
     // Converts hex color to RGB array [r, g, b]
@@ -271,7 +282,7 @@ looker.plugins.visualizations.add({
     };
 
     // --- Render Heatmap Cells ---
-    heatmapGroup.setAttribute("transform", `translate(${margin.left},${margin.top})`);
+    heatmapGroup.setAttribute("transform", `translate(${translateX},${translateY})`);
 
     yValues.forEach((yVal, yIndex) => {
       xValues.forEach((xVal, xIndex) => {
@@ -279,10 +290,10 @@ looker.plugins.visualizations.add({
         const cellColor = getColorForValue(cellValue);
 
         const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-        rect.setAttribute("x", xIndex * cellWidth);
-        rect.setAttribute("y", yIndex * cellHeight);
-        rect.setAttribute("width", cellWidth);
-        rect.setAttribute("height", cellHeight);
+        rect.setAttribute("x", xIndex * cellSize); // Use cellSize for width
+        rect.setAttribute("y", yIndex * cellSize); // Use cellSize for height
+        rect.setAttribute("width", cellSize);
+        rect.setAttribute("height", cellSize);
         rect.setAttribute("fill", cellColor);
         rect.setAttribute("stroke", "#FFFFFF"); // White border for cells
         rect.setAttribute("stroke-width", 1);
@@ -291,8 +302,8 @@ looker.plugins.visualizations.add({
         // Cell Value Label
         if (config.show_cell_values && cellValue !== undefined) {
           const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-          text.setAttribute("x", xIndex * cellWidth + cellWidth / 2);
-          text.setAttribute("y", yIndex * cellHeight + cellHeight / 2 + config.cell_value_size / 3); // Adjust y for vertical centering
+          text.setAttribute("x", xIndex * cellSize + cellSize / 2);
+          text.setAttribute("y", yIndex * cellSize + cellSize / 2 + config.cell_value_size / 3); // Adjust y for vertical centering
           text.setAttribute("text-anchor", "middle");
           text.style.fontSize = `${config.cell_value_size}px`;
           text.setAttribute("fill", config.cell_value_color[0]);
@@ -304,11 +315,11 @@ looker.plugins.visualizations.add({
 
     // --- Render Y-Axis Labels ---
     if (config.show_y_axis_labels) {
-      yAxisGroup.setAttribute("transform", `translate(${margin.left - 10},${margin.top})`); // Shift left
+      yAxisGroup.setAttribute("transform", `translate(${margin.left - 10},${translateY})`); // Shift left, align with heatmapGroup's Y
       yValues.forEach((yVal, yIndex) => {
         const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
         text.setAttribute("x", 0);
-        text.setAttribute("y", yIndex * cellHeight + cellHeight / 2 + config.y_axis_label_size / 3);
+        text.setAttribute("y", yIndex * cellSize + cellSize / 2 + config.y_axis_label_size / 3);
         text.setAttribute("text-anchor", "end");
         text.style.fontSize = `${config.y_axis_label_size}px`;
         text.setAttribute("fill", "#333333");
@@ -319,17 +330,17 @@ looker.plugins.visualizations.add({
 
     // --- Render X-Axis Labels ---
     if (config.show_x_axis_labels) {
-      xAxisGroup.setAttribute("transform", `translate(${margin.left},${margin.top + chartHeight + 10})`); // Shift down
+      xAxisGroup.setAttribute("transform", `translate(${translateX},${translateY + chartHeight + 10})`); // Shift down, align with heatmapGroup's X
       xValues.forEach((xVal, xIndex) => {
         const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-        text.setAttribute("x", xIndex * cellWidth + cellWidth / 2);
+        text.setAttribute("x", xIndex * cellSize + cellSize / 2);
         text.setAttribute("y", 0);
         text.setAttribute("text-anchor", "middle");
         text.style.fontSize = `${config.x_axis_label_size}px`;
         text.setAttribute("fill", "#333333");
         // Rotate labels if they might overlap
-        if (xValues.length > 5 && cellWidth < 80) { // Heuristic for when to rotate
-          text.setAttribute("transform", `rotate(45, ${xIndex * cellWidth + cellWidth / 2}, 0)`);
+        if (xValues.length > 5 && cellSize < 80) { // Heuristic for when to rotate
+          text.setAttribute("transform", `rotate(45, ${xIndex * cellSize + cellSize / 2}, 0)`);
           text.setAttribute("text-anchor", "start");
         }
         text.textContent = xVal;
