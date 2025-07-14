@@ -1,151 +1,340 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vanilla JavaScript Heatmap</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            background-color: #f0f2f5;
-            margin: 0;
-            padding: 20px;
-            box-sizing: border-box;
+// my_heatmap_no_deps.js
+
+// This JavaScript file defines a custom Heatmap visualization for Looker.
+// It is designed to have NO EXTERNAL JAVASCRIPT DEPENDENCIES,
+// relying solely on native browser APIs (pure JavaScript and SVG manipulation).
+
+// The main visualization object that Looker interacts with.
+looker.plugins.visualizations.add({
+  // Define the configurable options for the visualization. These options will appear
+  // in the Looker visualization panel, allowing users to customize the chart.
+  options: {
+    // Color Scale Settings
+    min_color: {
+      type: "array",
+      label: "Min Value Color",
+      default: ["#FFFFFF"], // White
+      display: "color",
+      section: "Colors",
+      order: 1
+    },
+    mid_color: {
+      type: "array",
+      label: "Mid Value Color (Optional)",
+      default: ["#FFFF00"], // Yellow
+      display: "color",
+      section: "Colors",
+      order: 2
+    },
+    max_color: {
+      type: "array",
+      label: "Max Value Color",
+      default: ["#FF0000"], // Red
+      display: "color",
+      section: "Colors",
+      order: 3
+    },
+    use_mid_color: {
+      type: "boolean",
+      label: "Use Mid Color in Scale",
+      default: false,
+      display: "radio",
+      section: "Colors",
+      order: 4
+    },
+    // Axis Labels
+    show_x_axis_labels: {
+      type: "boolean",
+      label: "Show X-Axis Labels",
+      default: true,
+      display: "radio",
+      section: "Labels",
+      order: 1
+    },
+    show_y_axis_labels: {
+      type: "boolean",
+      label: "Show Y-Axis Labels",
+      default: true,
+      display: "radio",
+      section: "Labels",
+      order: 2
+    },
+    x_axis_label_size: {
+      type: "number",
+      label: "X-Axis Label Size",
+      default: 12,
+      min: 8,
+      max: 24,
+      step: 1,
+      section: "Labels",
+      order: 3
+    },
+    y_axis_label_size: {
+      type: "number",
+      label: "Y-Axis Label Size",
+      default: 12,
+      min: 8,
+      max: 24,
+      step: 1,
+      section: "Labels",
+      order: 4
+    },
+    // Cell Value Labels
+    show_cell_values: {
+      type: "boolean",
+      label: "Show Cell Values",
+      default: true,
+      display: "radio",
+      section: "Labels",
+      order: 5
+    },
+    cell_value_size: {
+      type: "number",
+      label: "Cell Value Font Size",
+      default: 10,
+      min: 8,
+      max: 20,
+      step: 1,
+      section: "Labels",
+      order: 6
+    },
+    cell_value_color: {
+      type: "array",
+      label: "Cell Value Color",
+      default: ["#000000"], // Black
+      display: "color",
+      section: "Colors",
+      order: 5
+    },
+    value_decimal_places: {
+      type: "number",
+      label: "Value Decimal Places",
+      default: 1,
+      min: 0,
+      max: 10,
+      step: 1,
+      display: "number",
+      section: "Labels",
+      order: 7
+    }
+  },
+
+  // The 'create' function is called once when the visualization is first mounted.
+  create: function(element, config) {
+    // Clear any existing content to ensure a clean slate for the visualization.
+    element.innerHTML = '';
+
+    // Create SVG element
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("width", "100%");
+    svg.setAttribute("height", "100%");
+    svg.style.fontFamily = "Inter, sans-serif";
+    element.appendChild(svg);
+
+    // Create group element for the heatmap cells
+    const heatmapGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    heatmapGroup.setAttribute("class", "heatmap-group");
+    svg.appendChild(heatmapGroup);
+
+    // Create group for Y-axis labels
+    const yAxisGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    yAxisGroup.setAttribute("class", "y-axis-labels");
+    svg.appendChild(yAxisGroup);
+
+    // Create group for X-axis labels
+    const xAxisGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    xAxisGroup.setAttribute("class", "x-axis-labels");
+    svg.appendChild(xAxisGroup);
+
+    // Create error message container
+    const errorContainer = document.createElement("div");
+    errorContainer.setAttribute("class", "error-message");
+    errorContainer.style.color = "red";
+    errorContainer.style.textAlign = "center";
+    errorContainer.style.padding = "10px";
+    errorContainer.style.display = "none";
+    element.appendChild(errorContainer);
+  },
+
+  // The 'updateAsync' function is called whenever the data, configuration, or size changes.
+  updateAsync: function(data, element, config, queryResponse, details) {
+    const svg = element.querySelector("svg");
+    const heatmapGroup = svg.querySelector(".heatmap-group");
+    const yAxisGroup = svg.querySelector(".y-axis-labels");
+    const xAxisGroup = svg.querySelector(".x-axis-labels");
+    const errorContainer = element.querySelector(".error-message");
+
+    // Clear previous renderings
+    while (heatmapGroup.firstChild) heatmapGroup.removeChild(heatmapGroup.firstChild);
+    while (yAxisGroup.firstChild) yAxisGroup.removeChild(yAxisGroup.firstChild);
+    while (xAxisGroup.firstChild) xAxisGroup.removeChild(xAxisGroup.firstChild);
+    errorContainer.style.display = "none";
+    errorContainer.textContent = "";
+
+    // Data Validation
+    const dimensions = queryResponse.fields.dimension_like;
+    const measures = queryResponse.fields.measure_like;
+
+    if (dimensions.length < 2) {
+      errorContainer.style.display = "block";
+      errorContainer.textContent = "This visualization requires at least two dimensions (one for X-axis, one for Y-axis).";
+      return;
+    }
+    if (measures.length !== 1) {
+      errorContainer.style.display = "block";
+      errorContainer.textContent = "This visualization requires exactly one measure (for cell values).";
+      return;
+    }
+    if (data.length === 0) {
+      errorContainer.style.display = "block";
+      errorContainer.textContent = "No data returned for this query.";
+      return;
+    }
+
+    // Extract axis dimensions and measure
+    const xAxisDimension = dimensions[0].name;
+    const yAxisDimension = dimensions[1].name;
+    const cellMeasure = measures[0].name;
+
+    // Get unique X and Y axis values
+    const xValues = Array.from(new Set(data.map(d => d[xAxisDimension].value)));
+    const yValues = Array.from(new Set(data.map(d => d[yAxisDimension].value)));
+
+    // Map data for easy lookup: { 'x_value|y_value': measure_value }
+    const cellDataMap = new Map();
+    let minValue = Infinity;
+    let maxValue = -Infinity;
+
+    data.forEach(d => {
+      const x = d[xAxisDimension].value;
+      const y = d[yAxisDimension].value;
+      const val = parseFloat(d[cellMeasure].value);
+      if (!isNaN(val)) {
+        cellDataMap.set(`${x}|${y}`, val);
+        if (val < minValue) minValue = val;
+        if (val > maxValue) maxValue = val;
+      }
+    });
+
+    // Handle case where all measure values might be the same or no valid numbers
+    if (minValue === Infinity || maxValue === -Infinity || minValue === maxValue) {
+        minValue = 0;
+        maxValue = 1; // Default to a small range if data is uniform or invalid
+    }
+
+    // Chart Dimensions and Margins
+    const svgWidth = element.offsetWidth;
+    const svgHeight = element.offsetHeight;
+
+    const margin = { top: 50, right: 20, bottom: 80, left: 100 }; // Increased margins for labels
+    const chartWidth = svgWidth - margin.left - margin.right;
+    const chartHeight = svgHeight - margin.top - margin.bottom;
+
+    const cellWidth = chartWidth / xValues.length;
+    const cellHeight = chartHeight / yValues.length;
+
+    // --- Color Scale Function (RGB interpolation) ---
+    // Converts hex color to RGB array [r, g, b]
+    const hexToRgb = (hex) => {
+      const bigint = parseInt(hex.slice(1), 16);
+      return [(bigint >> 16) & 255, (bigint >> 8) & 255, bigint & 255];
+    };
+
+    // Interpolates between two RGB colors
+    const interpolateRgb = (rgb1, rgb2, t) => {
+      return `rgb(${Math.round(rgb1[0] + (rgb2[0] - rgb1[0]) * t)},
+                    ${Math.round(rgb1[1] + (rgb2[1] - rgb1[1]) * t)},
+                    ${Math.round(rgb1[2] + (rgb2[2] - rgb1[2]) * t)})`;
+    };
+
+    const getColorForValue = (val) => {
+      if (isNaN(val)) return "#CCCCCC"; // Gray for null/invalid values
+
+      const minRgb = hexToRgb(config.min_color[0]);
+      const maxRgb = hexToRgb(config.max_color[0]);
+
+      if (config.use_mid_color) {
+        const midRgb = hexToRgb(config.mid_color[0]);
+        const midPoint = (minValue + maxValue) / 2;
+
+        if (val <= midPoint) {
+          const t = (val - minValue) / (midPoint - minValue);
+          return interpolateRgb(minRgb, midRgb, t);
+        } else {
+          const t = (val - midPoint) / (maxValue - midPoint);
+          return interpolateRgb(midRgb, maxRgb, t);
         }
-        .container {
-            background-color: #ffffff;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-            padding: 20px;
-            max-width: 900px;
-            width: 100%;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+      } else {
+        const t = (val - minValue) / (maxValue - minValue);
+        return interpolateRgb(minRgb, maxRgb, t);
+      }
+    };
+
+    // --- Render Heatmap Cells ---
+    heatmapGroup.setAttribute("transform", `translate(${margin.left},${margin.top})`);
+
+    yValues.forEach((yVal, yIndex) => {
+      xValues.forEach((xVal, xIndex) => {
+        const cellValue = cellDataMap.get(`${xVal}|${yVal}`);
+        const cellColor = getColorForValue(cellValue);
+
+        const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        rect.setAttribute("x", xIndex * cellWidth);
+        rect.setAttribute("y", yIndex * cellHeight);
+        rect.setAttribute("width", cellWidth);
+        rect.setAttribute("height", cellHeight);
+        rect.setAttribute("fill", cellColor);
+        rect.setAttribute("stroke", "#FFFFFF"); // White border for cells
+        rect.setAttribute("stroke-width", 1);
+        heatmapGroup.appendChild(rect);
+
+        // Cell Value Label
+        if (config.show_cell_values && cellValue !== undefined) {
+          const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+          text.setAttribute("x", xIndex * cellWidth + cellWidth / 2);
+          text.setAttribute("y", yIndex * cellHeight + cellHeight / 2 + config.cell_value_size / 3); // Adjust y for vertical centering
+          text.setAttribute("text-anchor", "middle");
+          text.style.fontSize = `${config.cell_value_size}px`;
+          text.setAttribute("fill", config.cell_value_color[0]);
+          text.textContent = isNaN(cellValue) ? "" : cellValue.toFixed(config.value_decimal_places);
+          heatmapGroup.appendChild(text);
         }
-        canvas {
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-            background-color: #ffffff;
-            display: block; /* Remove extra space below canvas */
-            max-width: 100%;
-            height: auto;
+      });
+    });
+
+    // --- Render Y-Axis Labels ---
+    if (config.show_y_axis_labels) {
+      yAxisGroup.setAttribute("transform", `translate(${margin.left - 10},${margin.top})`); // Shift left
+      yValues.forEach((yVal, yIndex) => {
+        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        text.setAttribute("x", 0);
+        text.setAttribute("y", yIndex * cellHeight + cellHeight / 2 + config.y_axis_label_size / 3);
+        text.setAttribute("text-anchor", "end");
+        text.style.fontSize = `${config.y_axis_label_size}px`;
+        text.setAttribute("fill", "#333333");
+        text.textContent = yVal;
+        yAxisGroup.appendChild(text);
+      });
+    }
+
+    // --- Render X-Axis Labels ---
+    if (config.show_x_axis_labels) {
+      xAxisGroup.setAttribute("transform", `translate(${margin.left},${margin.top + chartHeight + 10})`); // Shift down
+      xValues.forEach((xVal, xIndex) => {
+        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        text.setAttribute("x", xIndex * cellWidth + cellWidth / 2);
+        text.setAttribute("y", 0);
+        text.setAttribute("text-anchor", "middle");
+        text.style.fontSize = `${config.x_axis_label_size}px`;
+        text.setAttribute("fill", "#333333");
+        // Rotate labels if they might overlap
+        if (xValues.length > 5 && cellWidth < 80) { // Heuristic for when to rotate
+          text.setAttribute("transform", `rotate(45, ${xIndex * cellWidth + cellWidth / 2}, 0)`);
+          text.setAttribute("text-anchor", "start");
         }
-        h1 {
-            color: #333;
-            margin-bottom: 20px;
-            font-size: 1.8rem;
-            text-align: center;
-        }
-        p {
-            color: #666;
-            margin-top: 10px;
-            text-align: center;
-            font-size: 0.9rem;
-        }
-    </style>
-</head>
-<body class="bg-gray-100 p-4">
-    <div class="container">
-        <h1 class="text-2xl font-bold">Simple Heatmap Visualization</h1>
-        <p class="text-gray-600 mb-4">Generated with vanilla JavaScript (no external dependencies).</p>
-        <canvas id="heatmapCanvas"></canvas>
-        <p class="text-sm text-gray-500 mt-4">
-            This heatmap displays random data with values from 0 to 100, mapped to a color gradient from blue (low) to red (high).
-            Resize your browser window to see the canvas adjust.
-        </p>
-    </div>
-
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const canvas = document.getElementById('heatmapCanvas');
-            const ctx = canvas.getContext('2d');
-
-            // --- Configuration ---
-            const GRID_SIZE_X = 20; // Number of cells horizontally
-            const GRID_SIZE_Y = 15; // Number of cells vertically
-            const DATA_MIN = 0;
-            const DATA_MAX = 100;
-
-            // Define color stops for the gradient (RGB values)
-            // Example: Blue (low) to Red (high)
-            const COLOR_LOW = { r: 0, g: 0, b: 255 };    // Blue
-            const COLOR_HIGH = { r: 255, g: 0, b: 0 };  // Red
-
-            // --- Data Generation (Replace with your actual data) ---
-            // This function generates random data for demonstration purposes.
-            // In a Looker context, you would receive your data from the Looker API.
-            function generateRandomData(rows, cols, minVal, maxVal) {
-                const data = [];
-                for (let y = 0; y < rows; y++) {
-                    const row = [];
-                    for (let x = 0; x < cols; x++) {
-                        row.push(Math.floor(Math.random() * (maxVal - minVal + 1)) + minVal);
-                    }
-                    data.push(row);
-                }
-                return data;
-            }
-
-            let heatmapData = generateRandomData(GRID_SIZE_Y, GRID_SIZE_X, DATA_MIN, DATA_MAX);
-
-            // --- Color Interpolation Function ---
-            // Interpolates between two colors based on a value (0 to 1)
-            function interpolateColor(value, color1, color2) {
-                const r = Math.round(color1.r + (color2.r - color1.r) * value);
-                const g = Math.round(color1.g + (color2.g - color1.g) * value);
-                const b = Math.round(color1.b + (color2.b - color1.b) * value);
-                return `rgb(${r}, ${g}, ${b})`;
-            }
-
-            // --- Drawing Function ---
-            function drawHeatmap() {
-                // Adjust canvas size to fit its container
-                // For Looker, you might set a fixed size or get it from the Looker container.
-                const container = canvas.parentElement;
-                canvas.width = container.clientWidth - 40; // Account for padding
-                canvas.height = (canvas.width / GRID_SIZE_X) * GRID_SIZE_Y; // Maintain aspect ratio
-
-                const cellWidth = canvas.width / GRID_SIZE_X;
-                const cellHeight = canvas.height / GRID_SIZE_Y;
-
-                ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear canvas
-
-                for (let y = 0; y < GRID_SIZE_Y; y++) {
-                    for (let x = 0; x < GRID_SIZE_X; x++) {
-                        const value = heatmapData[y][x];
-
-                        // Normalize the value to a 0-1 range
-                        const normalizedValue = (value - DATA_MIN) / (DATA_MAX - DATA_MIN);
-
-                        // Get the color for the current cell
-                        const color = interpolateColor(normalizedValue, COLOR_LOW, COLOR_HIGH);
-
-                        ctx.fillStyle = color;
-                        ctx.fillRect(x * cellWidth, y * cellHeight, cellWidth, cellHeight);
-
-                        // Optional: Draw cell value (for debugging/detail)
-                        // ctx.fillStyle = 'black';
-                        // ctx.font = '10px Arial';
-                        // ctx.textAlign = 'center';
-                        // ctx.textBaseline = 'middle';
-                        // ctx.fillText(value, x * cellWidth + cellWidth / 2, y * cellHeight + cellHeight / 2);
-                    }
-                }
-            }
-
-            // --- Event Listeners for Responsiveness ---
-            // Redraw heatmap when the window is resized
-            window.addEventListener('resize', drawHeatmap);
-
-            // Initial draw
-            drawHeatmap();
-        });
-    </script>
-</body>
-</html>
+        text.textContent = xVal;
+        xAxisGroup.appendChild(text);
+      });
+    }
+  }
+});
