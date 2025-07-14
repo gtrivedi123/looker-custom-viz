@@ -246,7 +246,7 @@ looker.plugins.visualizations.add({
     // Calculate centerY for the radar chart to be below the title
     // The top of the radar chart is centerY - radius.
     // We want (centerY - radius) to be below titleYPosition + some padding (e.g., 20px).
-    const centerY = titleYPosition + 30 + radius; // Adjusted centerY for space below title
+    const centerY = titleYPosition + 50 + radius; // Adjusted centerY for space below title
 
     // Update title
     if (config.title_display) {
