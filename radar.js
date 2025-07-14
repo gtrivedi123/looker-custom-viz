@@ -229,7 +229,7 @@ looker.plugins.visualizations.add({
     const centerX = width / 2;
 
     // Define the Y position for the title
-    const titleYPosition = 10; // Set a fixed Y position for the title
+    const titleYPosition = 15; // Set a fixed Y position for the title
 
     // Calculate centerY to place the gauge below the title with sufficient space
     // The top of the gauge arc is at centerY - gaugeRadius.
@@ -281,7 +281,7 @@ looker.plugins.visualizations.add({
 
     // Background arc (top half circle from 0 to PI radians)
     const backgroundArcPath = getArcPath(
-      0, Math.PI,
+      -Math.PI, Math.PI,
       gaugeRadius - gaugeThickness, gaugeRadius
     );
     const backgroundArc = document.createElementNS("http://www.w3.org/2000/svg", "path");
