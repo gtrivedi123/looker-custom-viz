@@ -227,12 +227,14 @@ looker.plugins.visualizations.add({
     const gaugeRadius = Math.min(width, height) / 2 * 0.8;
     const gaugeThickness = config.gauge_thickness;
     const centerX = width / 2;
-    const centerY = height / 2 + gaugeRadius * 0.1;
+    // Adjusted centerY to move the gauge down, creating space for the title
+    const centerY = height / 2 + gaugeRadius * 0.2;
 
     // Update title
     if (config.title_display) {
       titleText.setAttribute("x", centerX);
-      titleText.setAttribute("y", 30);
+      // Adjusted title Y position for more space
+      titleText.setAttribute("y", 40);
       titleText.textContent = config.title_text;
     } else {
       titleText.textContent = "";
@@ -244,13 +246,16 @@ looker.plugins.visualizations.add({
     // Function to convert value to angle (radians)
     const valueToAngle = (val) => {
       const normalized = (val - config.gauge_min) / (config.gauge_max - config.gauge_min);
-      return normalized * Math.PI - Math.PI / 2; // Maps to -PI/2 to PI/2
+      // Changed range from -PI/2 to PI/2 (90 to 270 degrees)
+      // to -PI to PI (0 to 360 degrees)
+      return normalized * (2 * Math.PI) - Math.PI;
     };
 
     // Function to generate SVG arc path
-    // This is a simplified arc path generator for a semi-circle.
-    const getArcPath = (startAngle, endAngle, innerR, outerR, cornerRadius) => {
-      const p = Math.PI;
+    const getArcPath = (startAngle, endAngle, innerR, outerR) => {
+      // For a full circle, the largeArcFlag should be 1 if the angle difference is > PI
+      const largeArcFlag = Math.abs(endAngle - startAngle) > Math.PI ? 1 : 0;
+
       const startXOuter = centerX + outerR * Math.cos(startAngle);
       const startYOuter = centerY + outerR * Math.sin(startAngle);
       const endXOuter = centerX + outerR * Math.cos(endAngle);
@@ -261,20 +266,17 @@ looker.plugins.visualizations.add({
       const endXInner = centerX + innerR * Math.cos(startAngle);
       const endYInner = centerY + innerR * Math.sin(startAngle);
 
-      // Path for a simple arc (no corner radius for simplicity without D3's arc generator)
-      // For rounded corners, a more complex path with Bezier curves would be needed.
-      // This version will have flat ends for the arc.
       let path = `M ${startXOuter} ${startYOuter}
-                  A ${outerR} ${outerR} 0 0 1 ${endXOuter} ${endYOuter}
+                  A ${outerR} ${outerR} 0 ${largeArcFlag} 1 ${endXOuter} ${endYOuter}
                   L ${startXInner} ${startYInner}
-                  A ${innerR} ${innerR} 0 0 0 ${endXInner} ${endYInner}
+                  A ${innerR} ${innerR} 0 ${largeArcFlag} 0 ${endXInner} ${endYInner}
                   Z`;
       return path;
     };
 
-    // Background arc
+    // Background arc (full circle)
     const backgroundArcPath = getArcPath(
-      -Math.PI / 2, Math.PI / 2,
+      -Math.PI, Math.PI, // Full circle from -180 to 180 degrees
       gaugeRadius - gaugeThickness, gaugeRadius
     );
     const backgroundArc = document.createElementNS("http://www.w3.org/2000/svg", "path");
@@ -282,9 +284,9 @@ looker.plugins.visualizations.add({
     backgroundArc.setAttribute("fill", config.gauge_color_background[0]);
     gaugeGroup.appendChild(backgroundArc);
 
-    // Fill arc
+    // Fill arc (representing the current value)
     const fillArcPath = getArcPath(
-      -Math.PI / 2, valueToAngle(value),
+      -Math.PI, valueToAngle(value), // Fill from -180 degrees to current value
       gaugeRadius - gaugeThickness, gaugeRadius
     );
     const fillArc = document.createElementNS("http://www.w3.org/2000/svg", "path");
