@@ -239,12 +239,19 @@ looker.plugins.visualizations.add({
     const height = element.offsetHeight;
     const radius = Math.min(width, height) / 2 * 0.7; // Radius of the radar chart
     const centerX = width / 2;
-    const centerY = height / 2;
+    
+    // Define the Y position for the title
+    const titleYPosition = 30; // Y position for the title's baseline
+
+    // Calculate centerY for the radar chart to be below the title
+    // The top of the radar chart is centerY - radius.
+    // We want (centerY - radius) to be below titleYPosition + some padding (e.g., 20px).
+    const centerY = titleYPosition + 20 + radius; // Adjusted centerY for space below title
 
     // Update title
     if (config.title_display) {
       titleText.setAttribute("x", centerX);
-      titleText.setAttribute("y", 30); // Position title at the top
+      titleText.setAttribute("y", titleYPosition); // Position title at the top
       titleText.textContent = `${config.chart_title}: ${itemName}`; // Include item name in title
     } else {
       titleText.textContent = "";
