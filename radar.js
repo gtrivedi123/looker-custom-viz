@@ -368,20 +368,22 @@ looker.plugins.visualizations.add({
     if (config.show_min_max_labels) {
       const labelOffset = 10; // Space between gauge ends and labels
 
-      // Min label: Under -180 degrees (left side), 10px down vertically
-      const minLabelX = centerX + gaugeRadius * Math.cos(-Math.PI); // At -180 degrees
-      const minLabelY = centerY + gaugeRadius * Math.sin(-Math.PI) + labelOffset;
+      // Min label: Horizontally in the middle of the beginning of the gauge (-PI point)
+      // and 10 pixels down vertically from the center of the arc's start point.
+      const minLabelX = centerX - gaugeRadius; // X-coord of the -PI point
+      const minLabelY = centerY + labelOffset; // Y-coord of the -PI point (which is centerY) + offset
 
-      // Max label: Under 0 degrees (right side), 10px down vertically
-      const maxLabelX = centerX + gaugeRadius * Math.cos(0); // At 0 degrees
-      const maxLabelY = centerY + gaugeRadius * Math.sin(0) + labelOffset;
+      // Max label: Horizontally in the middle of the end of the gauge (0 point)
+      // and 10 pixels down vertically from the center of the arc's end point.
+      const maxLabelX = centerX + gaugeRadius; // X-coord of the 0 point
+      const maxLabelY = centerY + labelOffset; // Y-coord of the 0 point (which is centerY) + offset
 
       // Min label
       const minLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
       minLabel.setAttribute("class", "min-label");
       minLabel.setAttribute("x", minLabelX);
       minLabel.setAttribute("y", minLabelY + (config.min_max_label_size / 2)); // Adjust Y for vertical centering
-      minLabel.setAttribute("text-anchor", "end"); // Align text to the left
+      minLabel.setAttribute("text-anchor", "middle"); // Center text horizontally
       minLabel.style.fontSize = `${config.min_max_label_size}px`;
       minLabel.setAttribute("fill", config.min_max_label_color[0]);
       minLabel.textContent = formatValue(config.gauge_min, config.value_format_string);
@@ -392,7 +394,7 @@ looker.plugins.visualizations.add({
       maxLabel.setAttribute("class", "max-label");
       maxLabel.setAttribute("x", maxLabelX);
       maxLabel.setAttribute("y", maxLabelY + (config.min_max_label_size / 2)); // Adjust Y for vertical centering
-      maxLabel.setAttribute("text-anchor", "start"); // Align text to the right
+      maxLabel.setAttribute("text-anchor", "middle"); // Center text horizontally
       maxLabel.style.fontSize = `${config.min_max_label_size}px`;
       maxLabel.setAttribute("fill", config.min_max_label_color[0]);
       maxLabel.textContent = formatValue(config.gauge_max, config.value_format_string);
