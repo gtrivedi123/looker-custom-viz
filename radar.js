@@ -103,7 +103,7 @@ looker.plugins.visualizations.add({
     value_label_size: {
       type: "number",
       label: "Value Label Font Size",
-      default: 36,
+      default: 25,
       min: 10,
       max: 72,
       step: 1,
