@@ -103,7 +103,7 @@ looker.plugins.visualizations.add({
     value_label_size: {
       type: "number",
       label: "Value Label Font Size",
-      default: 25,
+      default: 36,
       min: 10,
       max: 72,
       step: 1,
@@ -229,12 +229,12 @@ looker.plugins.visualizations.add({
     const centerX = width / 2;
 
     // Define the Y position for the title
-    const titleYPosition = 15; // Set a fixed Y position for the title
+    const titleYPosition = 50; // Set a fixed Y position for the title
 
     // Calculate centerY to place the gauge below the title with sufficient space
     // The top of the gauge arc is at centerY - gaugeRadius.
     // We want this to be below titleYPosition + some padding (e.g., 50px).
-    const centerY = titleYPosition + 10 + gaugeRadius; // Increased padding to 50px
+    const centerY = titleYPosition + 50 + gaugeRadius; // Increased padding to 50px
 
     // Update title
     if (config.title_display) {
@@ -251,37 +251,52 @@ looker.plugins.visualizations.add({
     // Function to convert value to angle (radians)
     const valueToAngle = (val) => {
       const normalized = (val - config.gauge_min) / (config.gauge_max - config.gauge_min);
-      // Map to 0 to PI (top half of the circle, from 0 degrees (right) to 180 degrees (left))
-      return normalized * Math.PI;
+      // Map to -PI to PI (full circle, from -180 degrees to 180 degrees)
+      return normalized * (2 * Math.PI) - Math.PI;
     };
 
     // Function to generate SVG arc path
     const getArcPath = (startAngle, endAngle, innerR, outerR) => {
-      // For a semi-circle, the largeArcFlag should be 0 if the angle difference is <= PI
-      // and 1 if > PI. For a 180-degree arc, it's 1.
-      const largeArcFlag = 1; // Always 1 for a 180-degree arc
+      // Ensure angles are within a single 2PI range for consistent calculation
+      startAngle = startAngle % (2 * Math.PI);
+      endAngle = endAngle % (2 * Math.PI);
+      // Adjust negative angles to be positive equivalents for calculation consistency
+      if (startAngle < 0) startAngle += 2 * Math.PI;
+      if (endAngle < 0) endAngle += 2 * Math.PI;
+
+      // Calculate sweep difference, ensuring it's positive and within 2PI
+      let angleDiff = endAngle - startAngle;
+      if (angleDiff < 0) angleDiff += 2 * Math.PI; // Correct for cases like start=270, end=90 (diff is -180, should be 180)
+
+      const largeArcFlag = angleDiff > Math.PI ? 1 : 0; // 1 if sweep > 180 degrees, 0 otherwise
+      const sweepFlag = 1; // Always clockwise for outer arc
 
       const startXOuter = centerX + outerR * Math.cos(startAngle);
       const startYOuter = centerY + outerR * Math.sin(startAngle);
       const endXOuter = centerX + outerR * Math.cos(endAngle);
       const endYOuter = centerY + outerR * Math.sin(endAngle);
 
-      const startXInner = centerX + innerR * Math.cos(endAngle);
-      const startYInner = centerY + innerR * Math.sin(endAngle);
-      const endXInner = centerX + innerR * Math.cos(startAngle);
-      const endYInner = centerY + innerR * Math.sin(startAngle);
+      const startXInner = centerX + innerR * Math.cos(startAngle); // Inner arc starts at the same angle as outer
+      const startYInner = centerY + innerR * Math.sin(startAngle);
+      const endXInner = centerX + innerR * Math.cos(endAngle);
+      const endYInner = centerY + innerR * Math.sin(endAngle);
 
+      // M start of outer arc
+      // A outer arc to end of outer arc
+      // L end of inner arc (connecting outer arc end to inner arc end)
+      // A inner arc backwards to start of inner arc (sweepFlag 0 means counter-clockwise)
+      // Z close path
       let path = `M ${startXOuter} ${startYOuter}
-                  A ${outerR} ${outerR} 0 ${largeArcFlag} 1 ${endXOuter} ${endYOuter}
-                  L ${startXInner} ${startYInner}
-                  A ${innerR} ${innerR} 0 ${largeArcFlag} 0 ${endXInner} ${endYInner}
+                  A ${outerR} ${outerR} 0 ${largeArcFlag} ${sweepFlag} ${endXOuter} ${endYOuter}
+                  L ${endXInner} ${endYInner}
+                  A ${innerR} ${innerR} 0 ${largeArcFlag} ${1 - sweepFlag} ${startXInner} ${startYInner}
                   Z`;
       return path;
     };
 
-    // Background arc (top half circle from 0 to PI radians)
+    // Background arc (full circle from -PI to PI radians, mapped to 0 to 2PI for path generation)
     const backgroundArcPath = getArcPath(
-      -Math.PI, Math.PI,
+      -Math.PI, Math.PI, // Logical start/end
       gaugeRadius - gaugeThickness, gaugeRadius
     );
     const backgroundArc = document.createElementNS("http://www.w3.org/2000/svg", "path");
@@ -291,7 +306,7 @@ looker.plugins.visualizations.add({
 
     // Fill arc (representing the current value)
     const fillArcPath = getArcPath(
-      0, valueToAngle(value), // Fill from 0 degrees to current value
+      -Math.PI, valueToAngle(value), // Fill from -PI to current value's angle
       gaugeRadius - gaugeThickness, gaugeRadius
     );
     const fillArc = document.createElementNS("http://www.w3.org/2000/svg", "path");
@@ -338,7 +353,7 @@ looker.plugins.visualizations.add({
     const valueLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
     valueLabel.setAttribute("class", "value-label");
     valueLabel.setAttribute("x", centerX);
-    valueLabel.setAttribute("y", centerY + gaugeRadius * 0.5);
+    valueLabel.setAttribute("y", centerY + gaugeRadius * 0.4);
     valueLabel.setAttribute("text-anchor", "middle");
     valueLabel.style.fontSize = `${config.value_label_size}px`;
     valueLabel.style.fontWeight = "bold";
@@ -349,18 +364,19 @@ looker.plugins.visualizations.add({
     // --- Min/Max Labels ---
     if (config.show_min_max_labels) {
       // Position min/max labels at the ends of the arc
-      const minLabelX = centerX + (gaugeRadius - gaugeThickness / 2) * Math.cos(0); // Right side
-      const minLabelY = centerY + (gaugeRadius - gaugeThickness / 2) * Math.sin(0);
+      // Min value is at -PI (left side), Max value is at PI (right side)
+      const minLabelX = centerX + (gaugeRadius + 10) * Math.cos(-Math.PI); // Left side, slightly outside
+      const minLabelY = centerY + (gaugeRadius + 10) * Math.sin(-Math.PI);
 
-      const maxLabelX = centerX + (gaugeRadius - gaugeThickness / 2) * Math.cos(Math.PI); // Left side
-      const maxLabelY = centerY + (gaugeRadius - gaugeThickness / 2) * Math.sin(Math.PI);
+      const maxLabelX = centerX + (gaugeRadius + 10) * Math.cos(Math.PI); // Right side, slightly outside
+      const maxLabelY = centerY + (gaugeRadius + 10) * Math.sin(Math.PI);
 
       // Min label
       const minLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
       minLabel.setAttribute("class", "min-label");
       minLabel.setAttribute("x", minLabelX);
       minLabel.setAttribute("y", minLabelY + (config.min_max_label_size / 2)); // Adjust Y for vertical centering
-      minLabel.setAttribute("text-anchor", "start"); // Align to the right of the arc end
+      minLabel.setAttribute("text-anchor", "end"); // Align to the left of the arc end
       minLabel.style.fontSize = `${config.min_max_label_size}px`;
       minLabel.setAttribute("fill", config.min_max_label_color[0]);
       minLabel.textContent = formatValue(config.gauge_min, config.value_format_string);
@@ -371,7 +387,7 @@ looker.plugins.visualizations.add({
       maxLabel.setAttribute("class", "max-label");
       maxLabel.setAttribute("x", maxLabelX);
       maxLabel.setAttribute("y", maxLabelY + (config.min_max_label_size / 2)); // Adjust Y for vertical centering
-      maxLabel.setAttribute("text-anchor", "end"); // Align to the left of the arc end
+      maxLabel.setAttribute("text-anchor", "start"); // Align to the right of the arc end
       maxLabel.style.fontSize = `${config.min_max_label_size}px`;
       maxLabel.setAttribute("fill", config.min_max_label_color[0]);
       maxLabel.textContent = formatValue(config.gauge_max, config.value_format_string);
