@@ -25,8 +25,7 @@
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1); /* Soft shadow */
             display: block;
             margin: 0 auto;
-            max-width: 90vw; /* Responsive width */
-            max-height: 80vh; /* Responsive height */
+            /* Responsive sizing will be handled by JavaScript */
         }
 
         /* Container for the chart and controls */
@@ -39,6 +38,8 @@
             background-color: #ffffff;
             border-radius: 1.5rem;
             box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+            width: 100%; /* Ensure container takes full width for responsive sizing */
+            max-width: 500px; /* Limit max width of the container */
         }
 
         /* Slider group styling */
@@ -113,7 +114,7 @@
 </head>
 <body class="flex items-center justify-center min-h-screen bg-gray-100 p-4">
     <div class="chart-container">
-        <canvas id="radarChart" width="400" height="400"></canvas>
+        <canvas id="radarChart"></canvas> <!-- Removed fixed width/height -->
         <div id="controls" class="flex flex-col items-center w-full">
             <!-- Sliders will be generated here by JavaScript -->
         </div>
@@ -121,6 +122,8 @@
     </div>
 
     <script>
+        console.log("Radar Chart script loaded."); // Debug log for script load
+
         // Get the canvas element and its 2D rendering context
         const canvas = document.getElementById('radarChart');
         const ctx = canvas.getContext('2d');
@@ -129,10 +132,8 @@
         const controlsContainer = document.getElementById('controls');
         const currentValuesDisplay = document.getElementById('currentValues');
 
-        // Chart parameters
-        const centerX = canvas.width / 2;
-        const centerY = canvas.height / 2;
-        const maxRadius = Math.min(canvas.width, canvas.height) * 0.4; // Max radius of the radar chart
+        // Chart parameters - these will be recalculated on resize
+        let centerX, centerY, maxRadius;
 
         // Metric definitions (name, current value)
         const metrics = [
@@ -147,6 +148,24 @@
         const numMetrics = metrics.length;
         // Angle between each metric axis
         const angleIncrement = (Math.PI * 2) / numMetrics;
+
+        /**
+         * Initializes or recalculates canvas dimensions and drawing parameters.
+         */
+        function setupCanvas() {
+            // Set canvas dimensions based on its parent container's width, maintaining a square aspect ratio
+            const container = canvas.parentElement;
+            // Use clientWidth for the actual rendered width of the container
+            const size = Math.min(container.clientWidth, 400); // Max 400px, but responsive to container
+
+            canvas.width = size;
+            canvas.height = size;
+
+            centerX = canvas.width / 2;
+            centerY = canvas.height / 2;
+            maxRadius = Math.min(canvas.width, canvas.height) * 0.4; // Max radius of the radar chart
+            console.log(`Canvas setup: width=${canvas.width}, height=${canvas.height}, maxRadius=${maxRadius}`);
+        }
 
         /**
          * Generates the sliders for each metric dynamically.
@@ -278,6 +297,8 @@
          * Updates and redraws the entire radar chart.
          */
         function updateChart() {
+            console.log("Updating chart..."); // Debug log
+            setupCanvas(); // Recalculate dimensions on every update
             drawGrid();
             drawMetricLabels();
             drawRadarPlot();
@@ -290,15 +311,12 @@
 
         // Initial setup and draw
         createSliders();
-        updateChart();
+        updateChart(); // Initial draw
 
         // Handle window resize to make the canvas responsive
         window.addEventListener('resize', () => {
-            // For simplicity, we're not dynamically resizing the canvas itself here,
-            // but rather ensuring the drawing adapts to the initial canvas size.
-            // If you need full canvas resizing, you'd update canvas.width/height
-            // and then re-evaluate centerX, centerY, maxRadius.
-            updateChart();
+            console.log("Window resized. Redrawing chart."); // Debug log
+            updateChart(); // Recalculate dimensions and redraw
         });
     </script>
 </body>
