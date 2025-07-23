@@ -222,7 +222,7 @@ looker.plugins.visualizations.add({
     // Chart Dimensions
     const width = element.offsetWidth;
     const height = element.offsetHeight;
-    const gaugeRadius = Math.min(width, height) / 2 * 0.8;
+    const gaugeRadius = Math.min(width, height) / 2 * 0.5;
     const gaugeThickness = config.gauge_thickness;
     const centerX = width / 2;
 
