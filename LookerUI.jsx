@@ -29,7 +29,7 @@ const App = () => {
     try {
       // NOTE: Replace this with your actual backend service URL.
       // This service will handle the upload to your GCS bucket.
-      const uploadServiceUrl = 'https://your-upload-service-url';
+      const uploadServiceUrl = 'https://console.cloud.google.com/storage/browser/looker_upload;tab=objects?forceOnBucketsSortingFiltering=true&inv=1&invt=Ab550w&project=gc-proj-cdp-uat-07ae&supportedpurview=project&prefix=&forceOnObjectsSortingFiltering=false';
       
       const response = await fetch(uploadServiceUrl, {
         method: 'POST',
