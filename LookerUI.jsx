@@ -1,16 +1,4 @@
 import React, { useState } from 'react';
-import {
-  Button,
-  Card,
-  CardContent,
-  ComponentsProvider,
-  Heading,
-  Text,
-  Spinner,
-} from '@looker/components';
-import {
-  ExtensionProvider40,
-} from '@looker/extension-sdk-react';
 
 // This is the main application component.
 // It is wrapped in the <ExtensionProvider40> which gives it access to the Looker SDK.
@@ -19,7 +7,6 @@ const App = () => {
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
-  const [downloadUrl, setDownloadUrl] = useState('');
   
   // === FILE UPLOAD LOGIC ===
   const handleFileChange = (e) => {
@@ -70,10 +57,8 @@ const App = () => {
     // This is a simple example assuming a fixed or known URL.
     const fileName = "example_report.xlsx";
     
-    // NOTE: Replace with the public URL or a signed URL for your file in GCS.
-    // For a real application, you would call a backend service to get a secure
-    // signed URL for a specific file, or use a public URL.
-    const gcsFileUrl = `https://storage.googleapis.com/your-bucket-name/${fileName}`;
+    // Use the bucket you referenced.
+    const gcsFileUrl = `https://storage.googleapis.com/looker_upload/${fileName}`;
     
     // Create a temporary link to trigger the download
     const link = document.createElement('a');
@@ -85,16 +70,16 @@ const App = () => {
   };
   
   return (
-    <ComponentsProvider>
+    <window.LookerComponents.ComponentsProvider>
       <div className="flex flex-col min-h-screen p-8 bg-gray-50 text-gray-800">
-        <Card className="flex-1 w-full max-w-4xl mx-auto rounded-xl shadow-lg p-6 space-y-8">
-          <CardContent className="space-y-6">
-            <Heading as="h1" className="text-3xl font-bold text-center text-blue-800">
+        <window.LookerComponents.Card className="flex-1 w-full max-w-4xl mx-auto rounded-xl shadow-lg p-6 space-y-8">
+          <window.LookerComponents.CardContent className="space-y-6">
+            <window.LookerComponents.Heading as="h1" className="text-3xl font-bold text-center text-blue-800">
               File Management
-            </Heading>
+            </window.LookerComponents.Heading>
             
             <div className="space-y-4">
-              <Text className="text-lg font-medium">1. File Upload</Text>
+              <window.LookerComponents.Text className="text-lg font-medium">1. File Upload</window.LookerComponents.Text>
               <div className="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-4">
                 <input
                   type="file"
@@ -106,42 +91,42 @@ const App = () => {
                     file:bg-blue-50 file:text-blue-700
                     hover:file:bg-blue-100"
                 />
-                <Button 
+                <window.LookerComponents.Button 
                   onClick={handleFileUpload}
                   disabled={!file || loading}
                   className="w-full sm:w-auto rounded-full font-medium"
                 >
                   {loading ? 'Uploading...' : 'Upload to Bucket'}
-                </Button>
+                </window.LookerComponents.Button>
               </div>
             </div>
             
             <div className="space-y-4">
-              <Text className="text-lg font-medium">2. File Download</Text>
+              <window.LookerComponents.Text className="text-lg font-medium">2. File Download</window.LookerComponents.Text>
               <div className="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-4">
-                <Button 
+                <window.LookerComponents.Button 
                   onClick={handleFileDownload}
                   className="w-full sm:w-auto rounded-full font-medium bg-green-500 hover:bg-green-600 text-white"
                 >
                   Download from Bucket
-                </Button>
+                </window.LookerComponents.Button>
               </div>
             </div>
             
             {/* Show message or spinner */}
             {message && (
               <div className="flex items-center space-x-2">
-                <Text className={`font-medium ${loading ? 'text-blue-500' : 'text-green-600'}`}>
+                <window.LookerComponents.Text className={`font-medium ${loading ? 'text-blue-500' : 'text-green-600'}`}>
                   {message}
-                </Text>
-                {loading && <Spinner size={20} />}
+                </window.LookerComponents.Text>
+                {loading && <window.LookerComponents.Spinner size={20} />}
               </div>
             )}
             
-          </CardContent>
-        </Card>
+          </window.LookerComponents.CardContent>
+        </window.LookerComponents.Card>
       </div>
-    </ComponentsProvider>
+    </window.LookerComponents.ComponentsProvider>
   );
 };
 
@@ -149,8 +134,8 @@ const App = () => {
 // It uses the ExtensionProvider40 to connect to the Looker host.
 export default function AppWrapper() {
   return (
-    <ExtensionProvider40>
+    <window.LookerExtensionSDK.ExtensionProvider40>
       <App />
-    </ExtensionProvider40>
+    </window.LookerExtensionSDK.ExtensionProvider40>
   );
 }
