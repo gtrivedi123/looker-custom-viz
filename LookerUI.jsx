@@ -55,10 +55,10 @@ const App = () => {
   const handleFileDownload = () => {
     // NOTE: You need to specify the file name or a way to retrieve the correct URL.
     // This is a simple example assuming a fixed or known URL.
-    const fileName = "example_report.xlsx";
+    const fileName = "test_report.xlsx";
     
     // Use the bucket you referenced.
-    const gcsFileUrl = `https://storage.googleapis.com/looker_upload/${fileName}`;
+    const gcsFileUrl = `https://console.cloud.google.com/storage/browser/looker_upload;tab=objects?forceOnBucketsSortingFiltering=true&inv=1&invt=Ab550w&project=gc-proj-cdp-uat-07ae&supportedpurview=project&prefix=&forceOnObjectsSortingFiltering=false`;
     
     // Create a temporary link to trigger the download
     const link = document.createElement('a');
